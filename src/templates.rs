@@ -102,7 +102,7 @@ impl<'d> XmlDocumentTemplating<'d> for XmlDocument
 {
     fn template(&'d self) -> XmlDocumentTemplateBuilder<'d>
     {
-        crate::xmlsec::guarantee_xmlsec_init();
+        let _ctx = crate::xmlsec::guarantee_xmlsec_init();
 
         XmlDocumentTemplateBuilder {doc: self, options: TemplateOptions::default()}
     }

@@ -10,8 +10,8 @@ use crate::XmlSecResult;
 use crate::XmlNode;
 use crate::XmlDocument;
 
-use std::os::raw::c_uchar;
-use std::ptr::null_mut;
+use std::os::raw::{c_uchar};
+use std::ptr::{null_mut, null};
 
 
 /// Signature signing/veryfying context
@@ -26,7 +26,7 @@ impl XmlSecSignatureContext
     /// Builds a context, ensuring xmlsec is initialized.
     pub fn new() -> Self
     {
-        crate::xmlsec::guarantee_xmlsec_init();
+        let _init = crate::xmlsec::guarantee_xmlsec_init();
 
         let ctx = unsafe { bindings::xmlSecDSigCtxCreate(null_mut()) };
 
@@ -119,14 +119,30 @@ impl XmlSecSignatureContext
     ///
     /// [xmldoc]: http://kwarc.github.io/rust-libxml/libxml/tree/document/struct.Document.html
     /// [inskey]: struct.XmlSecSignatureContext.html#method.insert_key
-    pub fn verify_document(&self, doc: &XmlDocument) -> XmlSecResult<bool>
+    pub fn verify_document(&self, doc: &XmlDocument, id_attr: Option<&str>) -> XmlSecResult<bool>
     {
         self.key_is_set()?;
 
-        let root = find_root(doc)?;
-        let sig  = find_signode(root)?;
+        let doc_ptr = doc.doc_ptr();
+        let root =  if let Some(root) = doc.get_root_element() {
+            root
+        } else {
+            return Err(XmlSecError::RootNotFound);
+        };
 
-        self.verify_node_raw(sig)
+        let root_ptr = root.node_ptr() as *mut bindings::xmlNode;
+
+        if let Some(id_attr) = id_attr {
+            let cid = std::ffi::CString::new(id_attr).unwrap();
+
+            unsafe {
+                let mut list = [cid.as_bytes().as_ptr(), null()];
+                bindings::xmlSecAddIDs(doc_ptr as *mut bindings::xmlDoc, root_ptr, list.as_mut_ptr());
+            }
+        }
+
+        let signode = find_signode(root_ptr)?;
+        self.verify_node_raw(signode)
     }
 }
 
@@ -165,11 +181,8 @@ impl XmlSecSignatureContext
 
         match unsafe { (*self.ctx).status }
         {
-            bindings::xmlSecDSigStatus_xmlSecDSigStatusUnknown   => Ok(false),
             bindings::xmlSecDSigStatus_xmlSecDSigStatusSucceeded => Ok(true),
-            bindings::xmlSecDSigStatus_xmlSecDSigStatusInvalid   => Ok(false),
-
-            _ => panic!("Failed to interprete xmlSecDSigStatus code")
+            _ => Ok(false)
         }
     }
 }

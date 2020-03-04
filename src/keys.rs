@@ -48,7 +48,7 @@ impl XmlSecKey
     {
         // TODO deprecate internals for Rust read-from-file and then loading with `from_memory`
 
-        crate::xmlsec::guarantee_xmlsec_init();
+        let _ctx = crate::xmlsec::guarantee_xmlsec_init();
 
         // TODO proper sanitization/error handling of input
         let cpath   = CString::new(path).unwrap();
@@ -73,7 +73,7 @@ impl XmlSecKey
     /// Load key from buffer in memory, specifying format and optionally the password required to decrypt/unlock.
     pub fn from_memory(buffer: &[u8], format: XmlSecKeyFormat, password: Option<&str>) -> XmlSecResult<Self>
     {
-        crate::xmlsec::guarantee_xmlsec_init();
+        let _ctx = crate::xmlsec::guarantee_xmlsec_init();
 
         // TODO proper sanitization/error handling of input
         let cpasswd = password.map(|p| CString::new(p).unwrap());
