@@ -24,17 +24,17 @@ pub struct XmlSecSignatureContext
 impl XmlSecSignatureContext
 {
     /// Builds a context, ensuring xmlsec is initialized.
-    pub fn new() -> Self
+    pub fn new() -> XmlSecResult<Self>
     {
         let _init = crate::xmlsec::guarantee_xmlsec_init();
 
         let ctx = unsafe { bindings::xmlSecDSigCtxCreate(null_mut()) };
 
         if ctx.is_null() {
-            panic!("Failed to create dsig context");
+            return Err(XmlSecError::ContextInitError);
         }
 
-        Self {ctx}
+        Ok(Self {ctx})
     }
 
     /// Sets the key to use for signature or verification. In case a key had
@@ -89,14 +89,30 @@ impl XmlSecSignatureContext
     ///
     /// [xmldoc]: http://kwarc.github.io/rust-libxml/libxml/tree/document/struct.Document.html
     /// [inskey]: struct.XmlSecSignatureContext.html#method.insert_key
-    pub fn sign_document(&self, doc: &XmlDocument) -> XmlSecResult<()>
+    pub fn sign_document(&self, doc: &XmlDocument, id_attr: Option<&str>) -> XmlSecResult<()>
     {
         self.key_is_set()?;
 
-        let root = find_root(doc)?;
-        let sig  = find_signode(root)?;
+        let doc_ptr = doc.doc_ptr();
+        let root =  if let Some(root) = doc.get_root_element() {
+            root
+        } else {
+            return Err(XmlSecError::RootNotFound);
+        };
 
-        self.sign_node_raw(sig)
+        let root_ptr = root.node_ptr() as *mut bindings::xmlNode;
+
+        if let Some(id_attr) = id_attr {
+            let cid = std::ffi::CString::new(id_attr).unwrap();
+
+            unsafe {
+                let mut list = [cid.as_bytes().as_ptr(), null()];
+                bindings::xmlSecAddIDs(doc_ptr as *mut bindings::xmlDoc, root_ptr, list.as_mut_ptr());
+            }
+        }
+
+        let signode = find_signode(root_ptr)?;
+        self.sign_node_raw(signode)
     }
 
     /// UNTESTED

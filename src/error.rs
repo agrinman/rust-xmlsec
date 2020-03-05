@@ -12,6 +12,8 @@ pub type XmlSecResult<T> = Result<T, XmlSecError>;
 #[derive(Debug)]
 pub enum XmlSecError
 {
+    ContextInitError,
+
     KeyNotLoaded,
     KeyLoadError,
     CertLoadError,
@@ -30,6 +32,8 @@ impl std::fmt::Display for XmlSecError
     {
         match self
         {
+            Self::ContextInitError  => write!(fmt, "{}", "Internal XmlSec Context Error"),
+
             Self::KeyNotLoaded  => write!(fmt, "{}", "Key has not yet been loaded and is required"),
             Self::KeyLoadError  => write!(fmt, "{}", "Failed to load key"),
             Self::CertLoadError => write!(fmt, "{}", "Failed to load certificate"),
